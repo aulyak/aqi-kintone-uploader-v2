@@ -13,11 +13,17 @@ const init = {
             userName: 'Username',
             password: 'Password',
             uploaderFlag: 'Uploader_Flag',
-          }
-        }
-      }
-    }
-  }
-}
+          },
+        },
+      },
+    },
+  },
+  configJson: {
+    appId: null,
+    url: null,
+    user: null,
+    password: null,
+  },
+};
 
 module.exports = init;
