@@ -1,29 +1,27 @@
-const init = {
-  kintoneApps: {
-    customersListApp: {
-      id: 781,
-      fieldCode: {
-        customerName: 'Customer_Name',
-        contractStatus: 'ContractStatus',
-        table: {
-          code: 'Credential',
-          columns: {
-            accountType: 'Account_Type',
-            url: 'URL',
-            userName: 'Username',
-            password: 'Password',
-            uploaderFlag: 'Uploader_Flag',
-          },
+const kintoneApps = {
+  customersListApp: {
+    id: 781,
+    fieldCode: {
+      customerName: 'Customer_Name',
+      contractStatus: 'ContractStatus',
+      table: {
+        code: 'Credential',
+        columns: {
+          accountType: 'Account_Type',
+          url: 'URL',
+          userName: 'Username',
+          password: 'Password',
+          uploaderFlag: 'Uploader_Flag',
         },
       },
     },
   },
-  configJson: {
-    appId: null,
-    url: null,
-    user: null,
-    password: null,
-  },
+};
+const configJson = {
+  appId: null,
+  baseUrl: null,
+  username: null,
+  password: null,
 };
 
-module.exports = init;
+export {kintoneApps, configJson};
