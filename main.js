@@ -1,11 +1,12 @@
+/* eslint-disable max-depth */
 import inquirer from 'inquirer';
 import {functions} from './functions.js';
 import {kintoneApps, configJson} from './init.js';
 import fs from 'fs';
 import process from 'process';
-import {execSync} from 'child_process';
-import {fileURLToPath} from 'url';
-import {dirname, resolve} from 'path';
+import util from 'util';
+import pkg from 'lodash';
+const {_} = pkg;
 
 // eslint-disable-next-line max-statements
 (async () => {
@@ -15,21 +16,11 @@ import {dirname, resolve} from 'path';
   const tableRef = kintoneApps.customersListApp.fieldCode.table;
 
   const args = process.argv.slice(2);
-  const usedArg = args[0];
+  const usedMainArg = args[0];
   const restArgs = [...args].splice(1);
 
-  if (usedArg === 'init') {
-    const appIdQuestion = [
-      {
-        type: 'input',
-        name: 'appId',
-        message: 'Input App ID:',
-      },
-    ];
-
-    const answersAppId = await prompt(appIdQuestion);
-    const {appId} = answersAppId;
-    configJson.appId = appId;
+  if (usedMainArg === 'init') {
+    functions.callUploader('init');
 
     const lookupOptions = [
       {
@@ -67,10 +58,6 @@ import {dirname, resolve} from 'path';
         const answersCustomer = await prompt(customerQuestion);
         const {customerName} = answersCustomer;
         customersList = await functions.getCustomersList(customerName);
-
-        if (!customersList.length) {
-          console.log('No customer found. please refine your search.');
-        }
       }
 
       const customersOption = [
@@ -112,6 +99,7 @@ import {dirname, resolve} from 'path';
 
       const copyTable = JSON.parse(JSON.stringify(filteredOptions));
 
+      console.log('Customers List Found: ');
       console.table(
         copyTable.map((item) => {
           for (const key in item.value) {
@@ -215,78 +203,189 @@ import {dirname, resolve} from 'path';
     const showConfig = JSON.parse(JSON.stringify(configJson));
     showConfig.password = '########';
 
-    console.table({
-      config: showConfig,
-    });
+    const readConfig = JSON.parse(JSON.stringify(configJson));
+    const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
 
-    if (!fs.existsSync('./config')) {
-      fs.mkdirSync('./config');
+    try {
+      const userClient = functions.getClient(readConfig);
+
+      const app = await functions.getApp(userClient, readManifest.app);
+      console.log('Related App Found: ');
+      console.table({
+        app
+      });
+
+      readConfig.appId = readManifest.app;
+      readConfig.isEligibleConfig = true;
+
+      if (!fs.existsSync('./config')) {
+        fs.mkdirSync('./config');
+      }
+    } catch (error) {
+      readConfig.appId = readManifest.app;
+      readConfig.isEligibleConfig = false;
     }
 
     fs.writeFileSync(
-      './config/base.json',
-      JSON.stringify(configJson),
+      './config/basic-config.json',
+      JSON.stringify(readConfig),
       'utf8',
       (err, data) => {},
     );
 
-    const readConfig = JSON.parse(fs.readFileSync('./config/base.json'));
-    const userClient = functions.getClient(readConfig);
-
-    const app = await functions.getApp(userClient, readConfig.appId);
-
+    console.log('Saved Config: ');
     console.table({
-      app
+      config: readConfig,
     });
   }
 
-  if (usedArg === 'import') {
-    // // Replace 'kintone-customize-uploader' with the actual name of the module you want to run
-    // const moduleName = '@kintone/customize-uploader';
+  if (usedMainArg === 'import') {
+    const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
+    const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
 
-    // // Get the absolute path of the current module's file
-    // const currentFileUrl = import.meta.url;
-    // const currentFilePath = fileURLToPath(currentFileUrl);
+    console.log({readConfig});
+    console.log({readManifest});
 
-    // // Get the directory of the current module
-    // const currentDirectory = dirname(currentFilePath);
+    const isEligibleConfig = readConfig.isEligibleConfig;
+    if (!isEligibleConfig) {
+      console.error('Config is ineligible. Please re-init config.');
+      return;
+    }
 
-    // // Resolve the path of the module relative to the current module's directory
-    // const modulePath = resolve(currentDirectory, 'node_modules', moduleName, 'bin', 'cli.js');
+    functions.callUploader('import');
+  }
 
-    // // Replace backslashes with double backslashes for Windows
-    // const modulePathForWindows = modulePath.replace(/\\/g, '\\\\');
+  if (usedMainArg === 'boilerplate') {
+    console.log({restArgs});
 
-    // console.log(`Executing command: node ${modulePathForWindows} --version`);
+    if (restArgs[0] === '--new') {
+      const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
+      const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
 
-    // // Run the kintone-customize-uploader module directly in the console
-    // try {
-    //   execSync(`node ${modulePathForWindows} --version`, {stdio: 'inherit'});
-    //   console.log('Command executed successfully.');
-    // } catch (error) {
-    //   console.error(`Error running kintone-customize-uploader: ${error.message}`);
-    // }
+      const userClient = functions.getClient(readConfig);
 
-    // Replace 'kintone-customize-uploader' with the actual name of the module you want to run
-    const moduleName = '@kintone/customize-uploader';
+      const appCustomize = await userClient.app.getAppCustomize({
+        app: readConfig.appId
+      });
 
-    const currentFileUrl = import.meta.url;
-    const currentFilePath = fileURLToPath(currentFileUrl);
-    const currentDirectory = dirname(currentFilePath);
+      const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
+      // console.log(util.inspect(readManifest, false, null, true /* enable colors */), 'readManifest');
 
-    try {
-      // Resolve the path of the module and extract the directory
-      // const modulePath = resolve(currentDirectory, 'node_modules', moduleName, 'dist', 'cli.js');
+      let isNew = true;
+      loop1:
+      for (const env in normalizedCustomizeInfo) {
+        if (Object.hasOwnProperty.call(normalizedCustomizeInfo, env)) {
+          if (env === 'scope' || env === 'revision') continue;
+          const element = normalizedCustomizeInfo[env];
+          for (const type in element) {
+            if (Object.hasOwnProperty.call(element, type)) {
+              if (element[type].length) {
+                isNew = false;
+                break loop1;
+              }
+            }
+          }
+        }
+      }
 
-      // console.log(`Executing command: node ${modulePath} --version`);
+      if (isNew) {
+        //
+        const codeInit = fs.readFileSync('./template/init-template.js', 'utf8');
+        console.log({codeInit});
 
-      // Run the kintone-customize-uploader module directly in the console
-      // execSync(`node ${modulePath} --version`, {stdio: 'inherit'});
-      execSync(`node .\\node_modules\\@kintone\\customize-uploader\\dist\\cli.js --version`, {stdio: 'inherit'});
+        const substr = codeInit.substring(codeInit.indexOf('fieldCode'));
+        const substrFieldCode = substr.substring(substr.indexOf('{'), substr.indexOf('}') + 1);
+        console.log({substrFieldCode});
 
-      console.log('Command executed successfully.');
-    } catch (error) {
-      console.error(`Error running kintone-customize-uploader: ${error.message}`);
+        const formFields = await userClient.app.getFormFields({
+          app: readConfig.appId
+        });
+        console.log(util.inspect(formFields, false, null, true /* enable colors */));
+
+        const fields = formFields.properties;
+
+        const fieldCode = {
+
+        };
+        for (const field in fields) {
+          if (Object.hasOwnProperty.call(fields, field)) {
+            const val = fields[field];
+
+            if (val.type === 'SUBTABLE') {
+              //
+              fieldCode.table[_.camelCase(val.label)] = {
+                fieldCode: val.code,
+                columns: {},
+
+              };
+
+              // const row = val.fields;
+
+              // for (const column in row) {
+              //   if (Object.hasOwnProperty.call(row, column)) {
+              //     const thisCol = row[column];
+              //     console.log({thisCol});
+
+              //     fieldCode.table = {
+              //       [_.camelCase(val.label)]: {
+              //         columns: {
+              //           [_.camelCase(thisCol.label)]: thisCol.code
+              //         }
+              //       }
+              //     };
+              //   }
+              // }
+
+
+            } else {
+              fieldCode[_.camelCase(val.label)] = val.code;
+            }
+
+          }
+        }
+        console.log(util.inspect(fieldCode, false, null, true /* enable colors */));
+
+        // const final = code.replace(substrFieldCode, 'ASU');
+        // console.log({final});
+      }
+    }
+
+    if (restArgs[0] === '--update') {
+      const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
+      const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
+
+      const userClient = functions.getClient(readConfig);
+
+      const appCustomize = await userClient.app.getAppCustomize({
+        app: readConfig.appId
+      });
+
+      const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
+      console.log(util.inspect(readManifest, false, null, true /* enable colors */), 'readManifest');
+
+      for (const env in normalizedCustomizeInfo) {
+        if (Object.hasOwnProperty.call(normalizedCustomizeInfo, env)) {
+          if (env === 'scope' || env === 'revision') continue;
+          const element = normalizedCustomizeInfo[env];
+          for (const type in element) {
+            if (Object.hasOwnProperty.call(element, type)) {
+              element[type] = element[type].map(item => {
+                if (item.type === 'URL') {
+                  return item.url;
+                }
+
+                if (item.type === 'FILE') {
+                  return item.file.name;
+                }
+
+                return null;
+              });
+            }
+          }
+        }
+      }
+
+      console.log(util.inspect(normalizedCustomizeInfo, false, null, true /* enable colors */), 'normalized');
     }
   }
 })();

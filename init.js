@@ -22,6 +22,7 @@ const configJson = {
   baseUrl: null,
   username: null,
   password: null,
+  isEligibleConfig: false,
 };
 
 export {kintoneApps, configJson};
