@@ -10,7 +10,10 @@
       "https://js.kintone.com/jqueryui/1.13.2/jquery-ui.min.js",
       "https://unpkg.com/@kintone/rest-api-client@latest/umd/KintoneRestAPIClient.min.js",
       "https://js.kintone.com/datatables/v1.10.20/js/jquery.dataTables.min.js",
-      "https://unpkg.com/kintone-ui-component/umd/kuc.min.js"
+      "https://unpkg.com/kintone-ui-component/umd/kuc.min.js",
+      "dest/desktop/js/init.js",
+      "dest/desktop/js/functions.js",
+      "dest/desktop/js/main.js"
     ],
     "css": [
       "https://js.kintone.com/sweetalert2/v9.10.7/sweetalert2.min.css",

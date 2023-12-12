@@ -1,25 +1,24 @@
+#!/usr/bin/env node
+
 /* eslint-disable max-depth */
 import inquirer from 'inquirer';
 import {functions} from './functions.js';
 import {kintoneApps, configJson} from './init.js';
 import fs from 'fs';
-import process from 'process';
-import util from 'util';
-import pkg from 'lodash';
-const {_} = pkg;
+import process, {exit} from 'process';
 
 // eslint-disable-next-line max-statements
 (async () => {
-  console.log('ctrl + C to exit program at anytime.');
-
   const prompt = inquirer.createPromptModule();
   const tableRef = kintoneApps.customersListApp.fieldCode.table;
 
   const args = process.argv.slice(2);
+  console.log({args});
   const usedMainArg = args[0];
   const restArgs = [...args].splice(1);
 
   if (usedMainArg === 'init') {
+    console.log('ctrl + C to exit program at anytime.');
     functions.callUploader('init');
 
     const lookupOptions = [
@@ -99,20 +98,6 @@ const {_} = pkg;
 
       const copyTable = JSON.parse(JSON.stringify(filteredOptions));
 
-      console.log('Customers List Found: ');
-      console.table(
-        copyTable.map((item) => {
-          for (const key in item.value) {
-            if (Object.hasOwnProperty.call(item.value, key)) {
-              item.value[key] = item.value[key].value;
-
-              if (key === 'Password') delete item.value[key];
-            }
-          }
-          return item.value;
-        }),
-      );
-
       const maintenanceAccountChoices = [
         ...mappedFilteredOptions,
         {
@@ -125,6 +110,20 @@ const {_} = pkg;
 
       let chosenMaintenanceAccount = maintenanceAccountChoices[0].value;
       if (mappedFilteredOptions.length > 1) {
+        console.log('Customers List Found: ');
+        console.table(
+          copyTable.map((item) => {
+            for (const key in item.value) {
+              if (Object.hasOwnProperty.call(item.value, key)) {
+                item.value[key] = item.value[key].value;
+
+                if (key === 'Password') delete item.value[key];
+              }
+            }
+            return item.value;
+          }),
+        );
+
         const maintenanceAccountQuestion = [
           {
             type: 'list',
@@ -203,11 +202,11 @@ const {_} = pkg;
     const showConfig = JSON.parse(JSON.stringify(configJson));
     showConfig.password = '########';
 
-    const readConfig = JSON.parse(JSON.stringify(configJson));
+    const readBasicConfig = JSON.parse(JSON.stringify(configJson));
     const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
 
     try {
-      const userClient = functions.getClient(readConfig);
+      const userClient = functions.getClient(readBasicConfig);
 
       const app = await functions.getApp(userClient, readManifest.app);
       console.log('Related App Found: ');
@@ -215,38 +214,29 @@ const {_} = pkg;
         app
       });
 
-      readConfig.appId = readManifest.app;
-      readConfig.isEligibleConfig = true;
-
-      if (!fs.existsSync('./config')) {
-        fs.mkdirSync('./config');
-      }
+      readBasicConfig.appId = readManifest.app;
+      readBasicConfig.isEligibleConfig = true;
     } catch (error) {
-      readConfig.appId = readManifest.app;
-      readConfig.isEligibleConfig = false;
+      readBasicConfig.appId = readManifest.app;
+      readBasicConfig.isEligibleConfig = false;
+    }
+
+    if (!fs.existsSync('./config')) {
+      fs.mkdirSync('./config');
     }
 
     fs.writeFileSync(
       './config/basic-config.json',
-      JSON.stringify(readConfig),
+      JSON.stringify(readBasicConfig, null, 2),
       'utf8',
       (err, data) => {},
     );
-
-    console.log('Saved Config: ');
-    console.table({
-      config: readConfig,
-    });
   }
 
   if (usedMainArg === 'import') {
-    const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
-    const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
+    const readBasicConfig = functions.readBasicConfig();
 
-    console.log({readConfig});
-    console.log({readManifest});
-
-    const isEligibleConfig = readConfig.isEligibleConfig;
+    const isEligibleConfig = readBasicConfig.isEligibleConfig;
     if (!isEligibleConfig) {
       console.error('Config is ineligible. Please re-init config.');
       return;
@@ -255,137 +245,76 @@ const {_} = pkg;
     functions.callUploader('import');
   }
 
-  if (usedMainArg === 'boilerplate') {
-    console.log({restArgs});
+  if (usedMainArg === 'boiler') {
+    const readBasicConfig = functions.readBasicConfig();
+    const userClient = functions.getClient(readBasicConfig);
+    const isNew = await functions.checkIsNewCustomization(readBasicConfig, userClient);
+    let userTemplateArg = null;
 
-    if (restArgs[0] === '--new') {
-      const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
-      const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
+    if (!isNew) console.log('Warning: This app already has already had customizations. Please make sure to run import first before uploading.');
 
-      const userClient = functions.getClient(readConfig);
+    if (restArgs.length) {
+      userTemplateArg = restArgs[0];
 
-      const appCustomize = await userClient.app.getAppCustomize({
-        app: readConfig.appId
-      });
+      functions.processTemplate(userTemplateArg, readBasicConfig, userClient);
 
-      const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
-      // console.log(util.inspect(readManifest, false, null, true /* enable colors */), 'readManifest');
-
-      let isNew = true;
-      loop1:
-      for (const env in normalizedCustomizeInfo) {
-        if (Object.hasOwnProperty.call(normalizedCustomizeInfo, env)) {
-          if (env === 'scope' || env === 'revision') continue;
-          const element = normalizedCustomizeInfo[env];
-          for (const type in element) {
-            if (Object.hasOwnProperty.call(element, type)) {
-              if (element[type].length) {
-                isNew = false;
-                break loop1;
-              }
-            }
-          }
-        }
-      }
-
-      if (isNew) {
-        //
-        const codeInit = fs.readFileSync('./template/init-template.js', 'utf8');
-        console.log({codeInit});
-
-        const substr = codeInit.substring(codeInit.indexOf('fieldCode'));
-        const substrFieldCode = substr.substring(substr.indexOf('{'), substr.indexOf('}') + 1);
-        console.log({substrFieldCode});
-
-        const formFields = await userClient.app.getFormFields({
-          app: readConfig.appId
-        });
-        console.log(util.inspect(formFields, false, null, true /* enable colors */));
-
-        const fields = formFields.properties;
-
-        const fieldCode = {
-
-        };
-        for (const field in fields) {
-          if (Object.hasOwnProperty.call(fields, field)) {
-            const val = fields[field];
-
-            if (val.type === 'SUBTABLE') {
-              //
-              fieldCode.table[_.camelCase(val.label)] = {
-                fieldCode: val.code,
-                columns: {},
-
-              };
-
-              // const row = val.fields;
-
-              // for (const column in row) {
-              //   if (Object.hasOwnProperty.call(row, column)) {
-              //     const thisCol = row[column];
-              //     console.log({thisCol});
-
-              //     fieldCode.table = {
-              //       [_.camelCase(val.label)]: {
-              //         columns: {
-              //           [_.camelCase(thisCol.label)]: thisCol.code
-              //         }
-              //       }
-              //     };
-              //   }
-              // }
-
-
-            } else {
-              fieldCode[_.camelCase(val.label)] = val.code;
-            }
-
-          }
-        }
-        console.log(util.inspect(fieldCode, false, null, true /* enable colors */));
-
-        // const final = code.replace(substrFieldCode, 'ASU');
-        // console.log({final});
-      }
+      // add here for template process
+      functions.copyCustomizeManifest(userTemplateArg);
+      return;
     }
 
-    if (restArgs[0] === '--update') {
-      const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
-      const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
-
-      const userClient = functions.getClient(readConfig);
-
-      const appCustomize = await userClient.app.getAppCustomize({
-        app: readConfig.appId
-      });
-
-      const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
-      console.log(util.inspect(readManifest, false, null, true /* enable colors */), 'readManifest');
-
-      for (const env in normalizedCustomizeInfo) {
-        if (Object.hasOwnProperty.call(normalizedCustomizeInfo, env)) {
-          if (env === 'scope' || env === 'revision') continue;
-          const element = normalizedCustomizeInfo[env];
-          for (const type in element) {
-            if (Object.hasOwnProperty.call(element, type)) {
-              element[type] = element[type].map(item => {
-                if (item.type === 'URL') {
-                  return item.url;
-                }
-
-                if (item.type === 'FILE') {
-                  return item.file.name;
-                }
-
-                return null;
-              });
-            }
-          }
-        }
-      }
-
-      console.log(util.inspect(normalizedCustomizeInfo, false, null, true /* enable colors */), 'normalized');
-    }
+    console.log('Using default template');
+    functions.copyCustomizeManifest(userTemplateArg);
+    return;
   }
+
+  if (usedMainArg === 'upload') {
+    const readBasicConfig = functions.readBasicConfig();
+    const userClient = functions.getClient(readBasicConfig);
+
+    const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
+
+    try {
+      const app = await functions.getApp(userClient, readManifest.app);
+      console.log('Related App Found: ');
+      console.table({
+        app
+      });
+      console.log('Please make sure this is the correct app.');
+    } catch (error) {
+      exit();
+    }
+
+    const isNew = await functions.checkIsNewCustomization(readBasicConfig, userClient);
+
+    if (!isNew) {
+      const confirmationDialogue = [
+        {
+          type: 'list',
+          name: 'confirmed',
+          message: 'This app has already had customizations. Please make sure you have imported them before uploading.',
+          choices: [
+            {
+              name: 'Proceed.',
+              value: true,
+            },
+            {
+              name: 'Cancel.',
+              value: false,
+            },
+          ],
+        },
+      ];
+
+      const confirmationAnswer = await prompt(confirmationDialogue);
+      const {confirmed} = confirmationAnswer;
+
+      if (!confirmed) return;
+    }
+
+
+    functions.callUploader('upload');
+  }
+
+
 })();

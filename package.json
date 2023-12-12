@@ -19,6 +19,9 @@
   ],
   "author": "Aulya Khatulistivani",
   "license": "ISC",
+  "bin": {
+    "akcu": "./cli.js"
+  },
   "bugs": {
     "url": "https://github.com/aulyak/aqi-kintone-uploader-v2/issues"
   },
