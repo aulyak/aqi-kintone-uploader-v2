@@ -18,7 +18,6 @@ dotenv.config({
 });
 
 (async () => {
-
   let masterClient;
   const prompt = inquirer.createPromptModule();
   const tableRef = kintoneApps.customersListApp.fieldCode.table;
@@ -39,11 +38,9 @@ dotenv.config({
     } catch (error) {
       throw new Error('Please set the .env by running "setup". Make sure the base url, username, and password are correct.');
     }
-
   }
 
   if (usedMainArg === 'init') {
-    console.log('ctrl + C to exit program at anytime.');
     functions.callUploader('init');
 
     const lookupOptions = [
@@ -257,6 +254,8 @@ dotenv.config({
       'utf8',
       (err, data) => {},
     );
+
+    return;
   }
 
   if (usedMainArg === 'import') {
@@ -269,6 +268,7 @@ dotenv.config({
     }
 
     functions.callUploader('import');
+    return;
   }
 
   if (usedMainArg === 'boiler') {
@@ -339,10 +339,10 @@ dotenv.config({
 
 
     functions.callUploader('upload');
+    return;
   }
 
   if (usedMainArg === 'setup') {
-
     console.log('...to setup the project. please enter your credentials down below.');
     const maintenanceAccountUserQuestion = [
       {
@@ -377,7 +377,31 @@ dotenv.config({
     fs.writeFileSync(envFilePath, envContent);
 
     console.log('successfully setup the environment variables.');
+    return;
   }
 
+  /** default usage */
+  console.log(`
+    akcu
+
+    Usage
+      $ akcu <params>
+
+    Params
+      setup                   setup .env variable by logging in with AQI kintone account
+      init                    generate basic-config.json
+      import                  import customization files & customize-manifest.json file from remote apps 
+      boiler <user-template>  update customization files & customize-manifest.json file
+             <user-template>  is optional, default will be boilerplate for cdn(s) only
+             ex: boiler kuya  append template with kuya's template.
+      upload                  upload customization files to remote apps
+
+    Limitations
+      does not support basic auth, OAuth, proxy server, guest space app
+
+    References
+      kintone-customize-uploader package: https://github.com/kintone/js-sdk/tree/master/packages/customize-uploader#readme
+
+  `);
 
 })();

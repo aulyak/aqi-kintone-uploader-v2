@@ -13,14 +13,17 @@ const {_} = pkg;
 
 const currentScriptPath = fileURLToPath(import.meta.url);
 
+/**
+ * functions
+ * @namespace functions
+ */
 const functions = {
   /**
    * to determine whether the current customized app has existing customizations or not.
    * if it returns true, then the app has no existing customization.
    *
-   * @memberof functions
-   * @param {object} readBasicConfig - basic config read from file ./config/basic-config.json
-   * @param {object} userClient - userClient object instantiated with selected user to make API call
+   * @param {Object} readBasicConfig - basic config read from file ./config/basic-config.json
+   * @param {Object} userClient - userClient object instantiated with selected user to make API call
    * @returns {boolean} - true or falsy value of whether the app has already customization
    */
   checkIsNewCustomization: async (readBasicConfig, userClient) => {
@@ -53,8 +56,8 @@ const functions = {
   /**
    * to initiate and show spinner
    *
-   * @param {object} opt - {text, color} text and color for spinner
-   * @returns {object} spinner instance
+   * @param {{text: string, color: string}} opt - {text, color} text and color for spinner
+   * @returns {Object} spinner instance
    */
   showSpinner: (opt) => {
     const spinner = createSpinner();
@@ -66,7 +69,7 @@ const functions = {
   /**
    * to stop spinner based on success or error
    *
-   * @param {object} spinner - spinner instance returned from showSpinner()
+   * @param {Object} spinner - spinner instance returned from showSpinner()
    * @param {string} msg - text message to be displayed after spinner is stopped
    * @param {boolean} [isSuccess = true] - determine success or error
    */
@@ -79,8 +82,8 @@ const functions = {
   /**
    * to get KintoneRestAPIClient based on created config
    *
-   * @param {object} params - {baseUrl, username, password} or basic config read from ./config/basic-config.json
-   * @returns {object} KintoneRestAPIClient instance
+   * @param {Object} params - {baseUrl, username, password} or basic config read from ./config/basic-config.json
+   * @returns {Object} KintoneRestAPIClient instance
    */
   getClient: (params) => {
     const {baseUrl, username, password} = params;
@@ -98,9 +101,9 @@ const functions = {
    * get list of customer from Kintone Customer List on https://aqi.cybozu.com by customer name (operator: contains)
    *
    * @param {string} customerName - the name of customer to be looked up
-   * @param {object} masterClient - KintoneRestAPIClient instance generated from .env
-   * @returns {object} - list of customer if success,
-   * @throws error if any error occurred
+   * @param {Object} masterClient - KintoneRestAPIClient instance generated from .env
+   * @returns {Object} - list of customer if success,
+   * @throws {error} if any error occurred during API Call
    */
   getCustomersList: (customerName, masterClient) => {
     const text = 'Getting Customers List.';
@@ -151,10 +154,10 @@ const functions = {
   /**
    * to get app info (id and name)
    *
-   * @param {object} userClient - KintoneRestAPIClient instance generated basic config
+   * @param {Object} userClient - KintoneRestAPIClient instance generated basic config
    * @param {(string|number)} appId - the appId from basic config
-   * @returns {object} - {appId, name} app id and name of the app if success
-   * @throws error if any error occurred
+   * @returns {Object} - {appId, name} app id and name of the app if success
+   * @throws {error} if any error occurred during API Call
    */
   getApp: (userClient, appId) => {
     const text = 'Getting Related App.';
@@ -232,6 +235,12 @@ const functions = {
       console.error(`Error running kintone-customize-uploader: ${error.message}`);
     }
   },
+  /**
+   *
+   * to populate dest/customize-manifest.json with content from template file by user specified
+   *
+   * @param {string} userTemplate
+   */
   copyCustomizeManifest: (userTemplate) => {
     const customizeManifestPath = path.join(
       path.dirname(currentScriptPath), '.', `./template/${userTemplate ? userTemplate + '/' : ''}customize-manifest-template.json`
@@ -276,6 +285,12 @@ const functions = {
 
     console.log('Completed copying from template.');
   },
+  /**
+   * to read config/basic-config.json and parse it to JSON
+   *
+   * @returns {Object} basic config
+   * @throws {error} if any error occurred during reading config file
+   */
   readBasicConfig: () => {
     try {
       return JSON.parse(fs.readFileSync('./config/basic-config.json'));
@@ -283,9 +298,16 @@ const functions = {
       throw new Error('No basic config found. Please re-init app.');
     }
   },
+  /**
+   * to process the template files and generate them based on user specified
+   *
+   * @param {string} userTemplateArg - user
+   * @param {Object} readBasicConfig - basic config
+   * @param {Object} userClient - KintoneRestAPIClient instance based on basic config
+   * @returns {null}
+   */
   processTemplate: async (userTemplateArg, readBasicConfig, userClient) => {
     if (userTemplateArg === 'kuya') {
-
       const codeInit = fs.readFileSync(path.join(
         path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}init-template.js`
       ), 'utf8');
@@ -334,6 +356,12 @@ const functions = {
 
     throw new Error(`No Config Found for user ${userTemplateArg}`);
   },
+  /**
+   * to generate init.thisApp.fieldCode objects (label-code pairs) for user template kuya
+   *
+   * @param {Object} fields - fields information obtained from get form fields API
+   * @returns {Object} field code objects (label-code pairs)
+   */
   getAutomatedFieldCode: (fields) => {
     const fieldCode = {};
     const labelCounter = {};
@@ -368,15 +396,18 @@ const functions = {
 
           const row = val.fields;
           for (const column in row) {
+            // eslint-disable-next-line max-depth
             if (Object.hasOwnProperty.call(row, column)) {
               const thisCol = row[column];
               let colLabel = thisCol.label;
+              // eslint-disable-next-line max-depth
               if (Object.hasOwnProperty.call(labelCounter, colLabel)) {
                 labelCounter[colLabel]++;
               } else {
                 labelCounter[colLabel] = 0;
               }
 
+              // eslint-disable-next-line max-depth
               if (Object.hasOwnProperty.call(fieldCode.table[_.camelCase(label)].columns, _.camelCase(colLabel))) {
                 colLabel += labelCounter[colLabel];
               }
@@ -398,8 +429,5 @@ const functions = {
 };
 
 export {
-  /**
-   * @object
-   */
   functions
 };
