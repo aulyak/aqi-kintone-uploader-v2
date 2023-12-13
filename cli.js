@@ -36,7 +36,8 @@ dotenv.config({
         },
       });
     } catch (error) {
-      throw new Error('Please set the .env by running "setup". Make sure the base url, username, and password are correct.');
+      console.error('Please set the .env by running "setup". Make sure the base url, username, and password are correct.');
+      process.exit(1);
     }
   }
 

@@ -3,6 +3,7 @@
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
+import process, {exit} from 'process';
 import {execSync} from 'child_process';
 import {createSpinner} from 'nanospinner';
 import pkg from 'lodash';
@@ -295,7 +296,8 @@ const functions = {
     try {
       return JSON.parse(fs.readFileSync('./config/basic-config.json'));
     } catch {
-      throw new Error('No basic config found. Please re-init app.');
+      console.error('No basic config found. Please re-init app.');
+      process.exit(1);
     }
   },
   /**
@@ -354,7 +356,8 @@ const functions = {
       return;
     }
 
-    throw new Error(`No Config Found for user ${userTemplateArg}`);
+    console.error(`No Config Found for user ${userTemplateArg}`);
+    process.exit(1);
   },
   /**
    * to generate init.thisApp.fieldCode objects (label-code pairs) for user template kuya
