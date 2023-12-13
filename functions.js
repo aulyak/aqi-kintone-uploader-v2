@@ -330,7 +330,7 @@ const functions = {
       const fields = formFields.properties;
       const fieldCode = functions.getAutomatedFieldCode(fields);
 
-      const resultInit = codeInit.replace(substrFieldCode, JSON.stringify(fieldCode, null, 2));
+      const resultInit = codeInit.replace(substrFieldCode, JSON.stringify(fieldCode, null, 8));
 
       fs.writeFileSync(
         './dest/desktop/js/init.js',
