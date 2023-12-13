@@ -1,30 +1,34 @@
-import {KintoneRestAPIClient} from '@kintone/rest-api-client';
-import dotenv from 'dotenv';
-import logUpdate from 'log-update';
-import {kintoneApps} from './init.js';
-import {createSpinner} from 'nanospinner';
-import {execSync} from 'child_process';
+/** @module functions */
+
 import fs from 'fs';
 import path from 'path';
 import {fileURLToPath} from 'url';
-// import util from 'util';
+import {execSync} from 'child_process';
+import {createSpinner} from 'nanospinner';
 import pkg from 'lodash';
+import {KintoneRestAPIClient} from '@kintone/rest-api-client';
+import {kintoneApps} from './init.js';
+
 const {_} = pkg;
 
 const currentScriptPath = fileURLToPath(import.meta.url);
 
-dotenv.config();
-
-// const tableCredsRef = kintoneApps.customersListApp.fieldCode.table;
-
 const functions = {
+  /**
+   * to determine whether the current customized app has existing customizations or not.
+   * if it returns true, then the app has no existing customization.
+   *
+   * @memberof functions
+   * @param {object} readBasicConfig - basic config read from file ./config/basic-config.json
+   * @param {object} userClient - userClient object instantiated with selected user to make API call
+   * @returns {boolean} - true or falsy value of whether the app has already customization
+   */
   checkIsNewCustomization: async (readBasicConfig, userClient) => {
     const appCustomize = await userClient.app.getAppCustomize({
       app: readBasicConfig.appId
     });
 
     const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
-    // console.log(util.inspect(readManifest, false, null, true /* enable colors */), 'readManifest');
 
     let isNew = true;
     loop1:
@@ -46,23 +50,12 @@ const functions = {
 
     return isNew;
   },
-  showLoadingFrames: () => {
-    const frames = [
-      'loading',
-      'loading.',
-      'loading..',
-      'loading...',
-      'loading....',
-    ];
-
-    let i = 0;
-    const mInterval = setInterval(() => {
-      const frame = frames[i++ % frames.length];
-      logUpdate(frame);
-    }, 100);
-
-    return mInterval;
-  },
+  /**
+   * to initiate and show spinner
+   *
+   * @param {object} opt - {text, color} text and color for spinner
+   * @returns {object} spinner instance
+   */
   showSpinner: (opt) => {
     const spinner = createSpinner();
 
@@ -70,12 +63,25 @@ const functions = {
 
     return spinner;
   },
+  /**
+   * to stop spinner based on success or error
+   *
+   * @param {object} spinner - spinner instance returned from showSpinner()
+   * @param {string} msg - text message to be displayed after spinner is stopped
+   * @param {boolean} [isSuccess = true] - determine success or error
+   */
   stopSpinner: (spinner, msg, isSuccess = true) => {
     const method = isSuccess ? 'success' : 'error';
     spinner[method]({
       text: `${method.toUpperCase()} ${msg}`
     });
   },
+  /**
+   * to get KintoneRestAPIClient based on created config
+   *
+   * @param {object} params - {baseUrl, username, password} or basic config read from ./config/basic-config.json
+   * @returns {object} KintoneRestAPIClient instance
+   */
   getClient: (params) => {
     const {baseUrl, username, password} = params;
     const opt = {
@@ -88,6 +94,14 @@ const functions = {
 
     return new KintoneRestAPIClient(opt);
   },
+  /**
+   * get list of customer from Kintone Customer List on https://aqi.cybozu.com by customer name (operator: contains)
+   *
+   * @param {string} customerName - the name of customer to be looked up
+   * @param {object} masterClient - KintoneRestAPIClient instance generated from .env
+   * @returns {object} - list of customer if success,
+   * @throws error if any error occurred
+   */
   getCustomersList: (customerName, masterClient) => {
     const text = 'Getting Customers List.';
     const spinner = functions.showSpinner({
@@ -134,6 +148,14 @@ const functions = {
       throw error;
     });
   },
+  /**
+   * to get app info (id and name)
+   *
+   * @param {object} userClient - KintoneRestAPIClient instance generated basic config
+   * @param {(string|number)} appId - the appId from basic config
+   * @returns {object} - {appId, name} app id and name of the app if success
+   * @throws error if any error occurred
+   */
   getApp: (userClient, appId) => {
     const text = 'Getting Related App.';
     const spinner = functions.showSpinner({
@@ -174,6 +196,11 @@ const functions = {
       throw error;
     });
   },
+  /**
+   * execute kintone-customize-uploader package based on config and type
+   *
+   * @param {string} type - the type of argument passed to kintone-customize-uploader package
+   */
   callUploader: (type) => {
     const uploaderCliPath = path.join(path.dirname(currentScriptPath), '.', '.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js');
 
@@ -268,9 +295,6 @@ const functions = {
       const codeMain = fs.readFileSync(path.join(
         path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}main-template.js`
       ), 'utf8');
-      // const codeInit = fs.readFileSync(`./template/${userTemplateArg}/init-template.js`, 'utf8');
-      // const codeFunctions = fs.readFileSync(`./template/${userTemplateArg}/functions-template.js`, 'utf8');
-      // const codeMain = fs.readFileSync(`./template/${userTemplateArg}/main-template.js`, 'utf8');
 
       const substr = codeInit.substring(codeInit.indexOf('fieldCode'));
       const substrFieldCode = substr.substring(substr.indexOf('{'), substr.indexOf('}') + 1);
@@ -373,4 +397,9 @@ const functions = {
   }
 };
 
-export {functions};
+export {
+  /**
+   * @object
+   */
+  functions
+};

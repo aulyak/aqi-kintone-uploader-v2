@@ -1,15 +1,15 @@
 #!/usr/bin/env node
+/* eslint-disable max-statements */
 
-/* eslint-disable max-depth */
+import fs from 'fs';
+import path from 'path';
+import dotenv from 'dotenv';
+import {fileURLToPath} from 'url';
+import process, {exit} from 'process';
 import {KintoneRestAPIClient} from '@kintone/rest-api-client';
 import inquirer from 'inquirer';
 import {functions} from './functions.js';
 import {kintoneApps, configJson} from './init.js';
-import fs from 'fs';
-import process, {exit} from 'process';
-import path from 'path';
-import {fileURLToPath} from 'url';
-import dotenv from 'dotenv';
 
 const currentScriptPath = fileURLToPath(import.meta.url);
 const envFilePath = path.join(path.dirname(currentScriptPath), '.', '.env');
@@ -17,7 +17,6 @@ dotenv.config({
   path: envFilePath
 });
 
-// eslint-disable-next-line max-statements
 (async () => {
 
   let masterClient;
@@ -229,9 +228,6 @@ dotenv.config({
       configJson.password = inputPassword;
     }
 
-    const showConfig = JSON.parse(JSON.stringify(configJson));
-    showConfig.password = '########';
-
     const readBasicConfig = JSON.parse(JSON.stringify(configJson));
     const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
 
@@ -281,15 +277,14 @@ dotenv.config({
     const isNew = await functions.checkIsNewCustomization(readBasicConfig, userClient);
     let userTemplateArg = null;
 
-    if (!isNew) console.log('Warning: This app already has already had customizations. Please make sure to run import first before uploading.');
+    if (!isNew) console.log('Warning: This app has already had customizations. Please make sure to run import first before uploading.');
 
     if (restArgs.length) {
       userTemplateArg = restArgs[0];
 
       functions.processTemplate(userTemplateArg, readBasicConfig, userClient);
-
-      // add here for template process
       functions.copyCustomizeManifest(userTemplateArg);
+
       return;
     }
 
