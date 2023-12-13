@@ -1,21 +1,47 @@
 #!/usr/bin/env node
 
 /* eslint-disable max-depth */
+import {KintoneRestAPIClient} from '@kintone/rest-api-client';
 import inquirer from 'inquirer';
 import {functions} from './functions.js';
 import {kintoneApps, configJson} from './init.js';
 import fs from 'fs';
 import process, {exit} from 'process';
+import path from 'path';
+import {fileURLToPath} from 'url';
+import dotenv from 'dotenv';
+
+const currentScriptPath = fileURLToPath(import.meta.url);
+const envFilePath = path.join(path.dirname(currentScriptPath), '.', '.env');
+dotenv.config({
+  path: envFilePath
+});
 
 // eslint-disable-next-line max-statements
 (async () => {
+
+  let masterClient;
   const prompt = inquirer.createPromptModule();
   const tableRef = kintoneApps.customersListApp.fieldCode.table;
 
   const args = process.argv.slice(2);
-  console.log({args});
   const usedMainArg = args[0];
   const restArgs = [...args].splice(1);
+
+  if (usedMainArg !== 'setup') {
+    try {
+      masterClient = new KintoneRestAPIClient({
+        baseUrl: process.env.HOST,
+        auth: {
+          username: process.env.USER,
+          password: process.env.PASS,
+        },
+      });
+    } catch (error) {
+      throw new Error('Please set the .env by running "setup". Make sure the base url, username, and password are correct.');
+    }
+
+  }
 
   if (usedMainArg === 'init') {
     console.log('ctrl + C to exit program at anytime.');
@@ -56,7 +82,11 @@ import process, {exit} from 'process';
       while (!customersList.length) {
         const answersCustomer = await prompt(customerQuestion);
         const {customerName} = answersCustomer;
-        customersList = await functions.getCustomersList(customerName);
+        try {
+          customersList = await functions.getCustomersList(customerName, masterClient);
+        } catch {
+          return;
+        }
       }
 
       const customersOption = [
@@ -314,6 +344,44 @@ import process, {exit} from 'process';
 
 
     functions.callUploader('upload');
+  }
+
+  if (usedMainArg === 'setup') {
+
+    console.log('...to setup the project. please enter your credentials down below.');
+    const maintenanceAccountUserQuestion = [
+      {
+        type: 'input',
+        name: 'inputUser',
+        message: 'User Name: ',
+      },
+    ];
+
+    const maintenanceAccountUserAnswer = await prompt(
+      maintenanceAccountUserQuestion,
+    );
+
+    const {inputUser} = maintenanceAccountUserAnswer;
+
+    const maintenanceAccountPasswordQuestion = [
+      {
+        type: 'password',
+        name: 'inputPassword',
+        message: 'Password: ',
+      },
+    ];
+
+    const maintenanceAccountPasswordAnswer = await prompt(
+      maintenanceAccountPasswordQuestion,
+    );
+
+    const {inputPassword} = maintenanceAccountPasswordAnswer;
+
+    const envContent = `HOST=https://aqi.cybozu.com\nUSER=${inputUser}\nPASS=${inputPassword}`;
+
+    fs.writeFileSync(envFilePath, envContent);
+
+    console.log('successfully setup the environment variables.');
   }
 
 

@@ -1,5 +1,5 @@
 {
-  "name": "aqi-kintone-uploader-v2",
+  "name": "aqi-kcu",
   "version": "1.0.0",
   "description": "kintone uploader for AQI",
   "type": "module",
@@ -27,7 +27,6 @@
   },
   "homepage": "https://github.com/aulyak/aqi-kintone-uploader-v2#readme",
   "dependencies": {
-    "@cybozu/eslint-config": "^22.0.2",
     "@kintone/customize-uploader": "^7.0.3",
     "@kintone/rest-api-client": "^4.0.3",
     "dotenv": "^16.3.1",
@@ -38,6 +37,7 @@
     "requirer": "^0.0.4"
   },
   "devDependencies": {
+    "@cybozu/eslint-config": "^22.0.2",
     "nodemon": "^3.0.1"
   }
 }

@@ -1,30 +1,19 @@
 import {KintoneRestAPIClient} from '@kintone/rest-api-client';
 import dotenv from 'dotenv';
-import process from 'process';
 import logUpdate from 'log-update';
 import {kintoneApps} from './init.js';
 import {createSpinner} from 'nanospinner';
 import {execSync} from 'child_process';
 import fs from 'fs';
+import path from 'path';
+import {fileURLToPath} from 'url';
 // import util from 'util';
 import pkg from 'lodash';
 const {_} = pkg;
 
+const currentScriptPath = fileURLToPath(import.meta.url);
+
 dotenv.config();
-
-let masterClient;
-
-try {
-  masterClient = new KintoneRestAPIClient({
-    baseUrl: process.env.HOST,
-    auth: {
-      username: process.env.USER,
-      password: process.env.PASS,
-    },
-  });
-} catch (error) {
-  throw new Error('Please set the env variables for getting data to AQI Database.');
-}
 
 // const tableCredsRef = kintoneApps.customersListApp.fieldCode.table;
 
@@ -99,7 +88,7 @@ const functions = {
 
     return new KintoneRestAPIClient(opt);
   },
-  getCustomersList: (customerName) => {
+  getCustomersList: (customerName, masterClient) => {
     const text = 'Getting Customers List.';
     const spinner = functions.showSpinner({
       text,
@@ -121,6 +110,28 @@ const functions = {
       functions.stopSpinner(spinner, text);
 
       return resp;
+    }).catch(error => {
+      const {message, id, code} = error;
+
+      functions.stopSpinner(spinner, text, false);
+
+      const errMsg = {
+        error: {
+          message,
+          id,
+          code,
+          note: 'Wrong environment variables. Please setup the .env file correctly. Make sure you set the correct domain and credentials.'
+        }
+      };
+
+      for (const component in errMsg.error) {
+        if (Object.hasOwnProperty.call(errMsg.error, component)) {
+          const msg = errMsg.error[component];
+          console.log(`${component}: ${msg}`);
+        }
+      }
+
+      throw error;
     });
   },
   getApp: (userClient, appId) => {
@@ -149,7 +160,7 @@ const functions = {
           message,
           id,
           code,
-          note: 'Wrong config. Please re-init the config with correct information. Make sure the DOMAIN, APP, AND USER match.'
+          note: 'Wrong config. Please re-init the config with correct information. Make sure the DOMAIN, APP, AND USER match and are eligible.'
         }
       };
 
@@ -164,6 +175,8 @@ const functions = {
     });
   },
   callUploader: (type) => {
+    const uploaderCliPath = path.join(path.dirname(currentScriptPath), '.', '.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js');
+
     let args = '';
 
     if (type === 'init') {
@@ -184,7 +197,7 @@ const functions = {
 
     }
 
-    const cliPath = `.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js ${args}`;
+    const cliPath = `${uploaderCliPath} ${args}`;
 
     try {
       execSync(`node ${cliPath}`, {stdio: 'inherit'});
@@ -193,7 +206,10 @@ const functions = {
     }
   },
   copyCustomizeManifest: (userTemplate) => {
-    const customizeManifest = fs.readFileSync(`./template/${userTemplate ? userTemplate + '/' : ''}customize-manifest-template.json`, 'utf8');
+    const customizeManifestPath = path.join(
+      path.dirname(currentScriptPath), '.', `./template/${userTemplate ? userTemplate + '/' : ''}customize-manifest-template.json`
+    );
+    const customizeManifest = fs.readFileSync(customizeManifestPath, 'utf8');
     const customizeManifestJson = JSON.parse(customizeManifest);
     const realManifest = fs.readFileSync(`./dest/customize-manifest.json`, 'utf8');
     const realManifestJson = JSON.parse(realManifest);
@@ -242,9 +258,19 @@ const functions = {
   },
   processTemplate: async (userTemplateArg, readBasicConfig, userClient) => {
     if (userTemplateArg === 'kuya') {
-      const codeInit = fs.readFileSync(`./template/${userTemplateArg}/init-template.js`, 'utf8');
-      const codeFunctions = fs.readFileSync(`./template/${userTemplateArg}/functions-template.js`, 'utf8');
-      const codeMain = fs.readFileSync(`./template/${userTemplateArg}/main-template.js`, 'utf8');
+
+      const codeInit = fs.readFileSync(path.join(
+        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}init-template.js`
+      ), 'utf8');
+      const codeFunctions = fs.readFileSync(path.join(
+        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}functions-template.js`
+      ), 'utf8');
+      const codeMain = fs.readFileSync(path.join(
+        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}main-template.js`
+      ), 'utf8');
+      // const codeInit = fs.readFileSync(`./template/${userTemplateArg}/init-template.js`, 'utf8');
+      // const codeFunctions = fs.readFileSync(`./template/${userTemplateArg}/functions-template.js`, 'utf8');
+      // const codeMain = fs.readFileSync(`./template/${userTemplateArg}/main-template.js`, 'utf8');
 
       const substr = codeInit.substring(codeInit.indexOf('fieldCode'));
       const substrFieldCode = substr.substring(substr.indexOf('{'), substr.indexOf('}') + 1);
