@@ -14,7 +14,7 @@ import {kintoneApps, configJson} from './init.js';
 const currentScriptPath = fileURLToPath(import.meta.url);
 const envFilePath = path.join(path.dirname(currentScriptPath), '.', '.env');
 dotenv.config({
-  path: envFilePath
+  path: envFilePath,
 });
 
 (async () => {
@@ -55,7 +55,7 @@ dotenv.config({
             value: true,
           },
           {
-            name: 'No. I\'ll input it manually. (recommended for internal use)',
+            name: "No. I'll input it manually. (recommended for internal use)",
             value: false,
           },
         ],
@@ -92,8 +92,7 @@ dotenv.config({
           name: 'chosenCustomer',
           message: 'Select customer:',
           choices: customersList.map((item) => ({
-            name: item[kintoneApps.customersListApp.fieldCode.customerName]
-              .value,
+            name: item[kintoneApps.customersListApp.fieldCode.customerName].value,
             value: item.$id.value,
           })),
         },
@@ -106,17 +105,11 @@ dotenv.config({
         chosenCustomer = answersOption.chosenCustomer;
       }
 
-      const customer = customersList.find(
-        (item) => item.$id.value === chosenCustomer,
-      );
+      const customer = customersList.find((item) => item.$id.value === chosenCustomer);
 
       const table = customer[tableRef.code].value;
 
-      const filteredOptions = table.filter(
-        (item) =>
-          item.value[tableRef.columns.accountType].value ===
-          'Kintone Maintenance Account',
-      );
+      const filteredOptions = table.filter((item) => item.value[tableRef.columns.accountType].value === 'Kintone Maintenance Account');
 
       const mappedFilteredOptions = filteredOptions.map((item) => ({
         name: item.value[tableRef.columns.userName].value,
@@ -129,9 +122,7 @@ dotenv.config({
         ...mappedFilteredOptions,
         {
           name: 'DEFAULT',
-          value: table.find(
-            (item) => item.value[tableRef.columns.uploaderFlag].value === '1',
-          )?.id,
+          value: table.find((item) => item.value[tableRef.columns.uploaderFlag].value === '1')?.id,
         },
       ];
 
@@ -160,23 +151,17 @@ dotenv.config({
           },
         ];
 
-        const answersMaintenanceAccount = await prompt(
-          maintenanceAccountQuestion,
-        );
+        const answersMaintenanceAccount = await prompt(maintenanceAccountQuestion);
 
         chosenMaintenanceAccount = answersMaintenanceAccount.chosenMaintenanceAccount;
       }
 
       if (chosenMaintenanceAccount) {
-        const chosenAccount = table.find(
-          (item) => item.id === chosenMaintenanceAccount,
-        );
+        const chosenAccount = table.find((item) => item.id === chosenMaintenanceAccount);
 
         configJson.baseUrl = chosenAccount.value[tableRef.columns.url].value;
-        configJson.username =
-          chosenAccount.value[tableRef.columns.userName].value;
-        configJson.password =
-          chosenAccount.value[tableRef.columns.password].value;
+        configJson.username = chosenAccount.value[tableRef.columns.userName].value;
+        configJson.password = chosenAccount.value[tableRef.columns.password].value;
       }
     }
 
@@ -201,9 +186,7 @@ dotenv.config({
         },
       ];
 
-      const maintenanceAccountUserAnswer = await prompt(
-        maintenanceAccountUserQuestion,
-      );
+      const maintenanceAccountUserAnswer = await prompt(maintenanceAccountUserQuestion);
 
       const {inputUser} = maintenanceAccountUserAnswer;
 
@@ -215,9 +198,7 @@ dotenv.config({
         },
       ];
 
-      const maintenanceAccountPasswordAnswer = await prompt(
-        maintenanceAccountPasswordQuestion,
-      );
+      const maintenanceAccountPasswordAnswer = await prompt(maintenanceAccountPasswordQuestion);
 
       const {inputPassword} = maintenanceAccountPasswordAnswer;
 
@@ -235,7 +216,7 @@ dotenv.config({
       const app = await functions.getApp(userClient, readManifest.app);
       console.log('Related App Found: ');
       console.table({
-        app
+        app,
       });
 
       readBasicConfig.appId = readManifest.app;
@@ -249,12 +230,7 @@ dotenv.config({
       fs.mkdirSync('./config');
     }
 
-    fs.writeFileSync(
-      './config/basic-config.json',
-      JSON.stringify(readBasicConfig, null, 2),
-      'utf8',
-      (err, data) => {},
-    );
+    fs.writeFileSync('./config/basic-config.json', JSON.stringify(readBasicConfig, null, 2), 'utf8', (err, data) => {});
 
     return;
   }
@@ -304,7 +280,7 @@ dotenv.config({
       const app = await functions.getApp(userClient, readManifest.app);
       console.log('Related App Found: ');
       console.table({
-        app
+        app,
       });
       console.log('Please make sure this is the correct app.');
     } catch (error) {
@@ -338,8 +314,55 @@ dotenv.config({
       if (!confirmed) return;
     }
 
-
     functions.callUploader('upload');
+    return;
+  }
+
+  if (usedMainArg === 'once') {
+    const readBasicConfig = functions.readBasicConfig();
+    const userClient = functions.getClient(readBasicConfig);
+
+    const readManifest = JSON.parse(fs.readFileSync('./dest/customize-manifest.json'));
+
+    try {
+      const app = await functions.getApp(userClient, readManifest.app);
+      console.log('Related App Found: ');
+      console.table({
+        app,
+      });
+      console.log('Please make sure this is the correct app.');
+    } catch (error) {
+      exit();
+    }
+
+    const isNew = await functions.checkIsNewCustomization(readBasicConfig, userClient);
+
+    if (!isNew) {
+      const confirmationDialogue = [
+        {
+          type: 'list',
+          name: 'confirmed',
+          message: 'This app has already had customizations. Please make sure you have imported them before uploading.',
+          choices: [
+            {
+              name: 'Proceed.',
+              value: true,
+            },
+            {
+              name: 'Cancel.',
+              value: false,
+            },
+          ],
+        },
+      ];
+
+      const confirmationAnswer = await prompt(confirmationDialogue);
+      const {confirmed} = confirmationAnswer;
+
+      if (!confirmed) return;
+    }
+
+    functions.callUploader('once');
     return;
   }
 
@@ -353,9 +376,7 @@ dotenv.config({
       },
     ];
 
-    const maintenanceAccountUserAnswer = await prompt(
-      maintenanceAccountUserQuestion,
-    );
+    const maintenanceAccountUserAnswer = await prompt(maintenanceAccountUserQuestion);
 
     const {inputUser} = maintenanceAccountUserAnswer;
 
@@ -367,9 +388,7 @@ dotenv.config({
       },
     ];
 
-    const maintenanceAccountPasswordAnswer = await prompt(
-      maintenanceAccountPasswordQuestion,
-    );
+    const maintenanceAccountPasswordAnswer = await prompt(maintenanceAccountPasswordQuestion);
 
     const {inputPassword} = maintenanceAccountPasswordAnswer;
 
@@ -404,5 +423,4 @@ dotenv.config({
       kintone-customize-uploader package: https://github.com/kintone/js-sdk/tree/master/packages/customize-uploader#readme
 
   `);
-
 })();

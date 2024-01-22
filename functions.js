@@ -29,14 +29,13 @@ const functions = {
    */
   checkIsNewCustomization: async (readBasicConfig, userClient) => {
     const appCustomize = await userClient.app.getAppCustomize({
-      app: readBasicConfig.appId
+      app: readBasicConfig.appId,
     });
 
     const normalizedCustomizeInfo = JSON.parse(JSON.stringify(appCustomize));
 
     let isNew = true;
-    loop1:
-    for (const env in normalizedCustomizeInfo) {
+    loop1: for (const env in normalizedCustomizeInfo) {
       if (Object.hasOwnProperty.call(normalizedCustomizeInfo, env)) {
         if (env === 'scope' || env === 'revision') continue;
         const element = normalizedCustomizeInfo[env];
@@ -77,7 +76,7 @@ const functions = {
   stopSpinner: (spinner, msg, isSuccess = true) => {
     const method = isSuccess ? 'success' : 'error';
     spinner[method]({
-      text: `${method.toUpperCase()} ${msg}`
+      text: `${method.toUpperCase()} ${msg}`,
     });
   },
   /**
@@ -93,7 +92,7 @@ const functions = {
       auth: {
         username,
         password,
-      }
+      },
     };
 
     return new KintoneRestAPIClient(opt);
@@ -114,43 +113,46 @@ const functions = {
     });
 
     const condition = `${kintoneApps.customersListApp.fieldCode.customerName} like "${customerName}"`;
-    return masterClient.record.getAllRecords({
-      app: kintoneApps.customersListApp.id,
-      condition,
-    }).then((resp) => {
-      if (!resp.length) {
-        console.log('No customer found. please refine your search.');
-        functions.stopSpinner(spinner, text, false);
+    return masterClient.record
+      .getAllRecords({
+        app: kintoneApps.customersListApp.id,
+        condition,
+      })
+      .then((resp) => {
+        if (!resp.length) {
+          console.log('No customer found. please refine your search.');
+          functions.stopSpinner(spinner, text, false);
+
+          return resp;
+        }
+
+        functions.stopSpinner(spinner, text);
 
         return resp;
-      }
+      })
+      .catch((error) => {
+        const {message, id, code} = error;
 
-      functions.stopSpinner(spinner, text);
+        functions.stopSpinner(spinner, text, false);
 
-      return resp;
-    }).catch(error => {
-      const {message, id, code} = error;
+        const errMsg = {
+          error: {
+            message,
+            id,
+            code,
+            note: 'Wrong environment variables. Please setup the .env file correctly. Make sure you set the correct domain and credentials.',
+          },
+        };
 
-      functions.stopSpinner(spinner, text, false);
-
-      const errMsg = {
-        error: {
-          message,
-          id,
-          code,
-          note: 'Wrong environment variables. Please setup the .env file correctly. Make sure you set the correct domain and credentials.'
+        for (const component in errMsg.error) {
+          if (Object.hasOwnProperty.call(errMsg.error, component)) {
+            const msg = errMsg.error[component];
+            console.log(`${component}: ${msg}`);
+          }
         }
-      };
 
-      for (const component in errMsg.error) {
-        if (Object.hasOwnProperty.call(errMsg.error, component)) {
-          const msg = errMsg.error[component];
-          console.log(`${component}: ${msg}`);
-        }
-      }
-
-      throw error;
-    });
+        throw error;
+      });
   },
   /**
    * to get app info (id and name)
@@ -167,38 +169,41 @@ const functions = {
       color: 'yellow',
     });
 
-    return userClient.app.getApp({
-      id: appId,
-    }).then(resp => {
-      functions.stopSpinner(spinner, text);
+    return userClient.app
+      .getApp({
+        id: appId,
+      })
+      .then((resp) => {
+        functions.stopSpinner(spinner, text);
 
-      return {
-        appId: resp.appId,
-        name: resp.name,
-      };
-    }).catch(error => {
-      const {message, id, code} = error;
+        return {
+          appId: resp.appId,
+          name: resp.name,
+        };
+      })
+      .catch((error) => {
+        const {message, id, code} = error;
 
-      functions.stopSpinner(spinner, text, false);
+        functions.stopSpinner(spinner, text, false);
 
-      const errMsg = {
-        error: {
-          message,
-          id,
-          code,
-          note: 'Wrong config. Please re-init the config with correct information. Make sure the DOMAIN, APP, AND USER match and are eligible.'
+        const errMsg = {
+          error: {
+            message,
+            id,
+            code,
+            note: 'Wrong config. Please re-init the config with correct information. Make sure the DOMAIN, APP, AND USER match and are eligible.',
+          },
+        };
+
+        for (const component in errMsg.error) {
+          if (Object.hasOwnProperty.call(errMsg.error, component)) {
+            const msg = errMsg.error[component];
+            console.log(`${component}: ${msg}`);
+          }
         }
-      };
 
-      for (const component in errMsg.error) {
-        if (Object.hasOwnProperty.call(errMsg.error, component)) {
-          const msg = errMsg.error[component];
-          console.log(`${component}: ${msg}`);
-        }
-      }
-
-      throw error;
-    });
+        throw error;
+      });
   },
   /**
    * execute kintone-customize-uploader package based on config and type
@@ -226,6 +231,9 @@ const functions = {
         args += `--watch dest\\customize-manifest.json --base-url ${baseUrl} --username ${username} --password ${password}`;
       }
 
+      if (type === 'once') {
+        args += ` dest\\customize-manifest.json --base-url ${baseUrl} --username ${username} --password ${password}`;
+      }
     }
 
     const cliPath = `${uploaderCliPath} ${args}`;
@@ -244,7 +252,9 @@ const functions = {
    */
   copyCustomizeManifest: (userTemplate) => {
     const customizeManifestPath = path.join(
-      path.dirname(currentScriptPath), '.', `./template/${userTemplate ? userTemplate + '/' : ''}customize-manifest-template.json`
+      path.dirname(currentScriptPath),
+      '.',
+      `./template/${userTemplate ? userTemplate + '/' : ''}customize-manifest-template.json`,
     );
     const customizeManifest = fs.readFileSync(customizeManifestPath, 'utf8');
     const customizeManifestJson = JSON.parse(customizeManifest);
@@ -252,37 +262,12 @@ const functions = {
     const realManifestJson = JSON.parse(realManifest);
 
     realManifestJson.scope = customizeManifestJson.scope;
-    realManifestJson.desktop.js = Array.from(new Set(
-      [
-        ...customizeManifestJson.desktop.js,
-        ...realManifestJson.desktop.js,
-      ]
-    ));
-    realManifestJson.desktop.css = Array.from(new Set(
-      [
-        ...customizeManifestJson.desktop.css,
-        ...realManifestJson.desktop.css,
-      ]
-    ));
-    realManifestJson.mobile.js = Array.from(new Set(
-      [
-        ...customizeManifestJson.mobile.js,
-        ...realManifestJson.mobile.js,
-      ]
-    ));
-    realManifestJson.mobile.css = Array.from(new Set(
-      [
-        ...customizeManifestJson.mobile.css,
-        ...realManifestJson.mobile.css,
-      ]
-    ));
+    realManifestJson.desktop.js = Array.from(new Set([...customizeManifestJson.desktop.js, ...realManifestJson.desktop.js]));
+    realManifestJson.desktop.css = Array.from(new Set([...customizeManifestJson.desktop.css, ...realManifestJson.desktop.css]));
+    realManifestJson.mobile.js = Array.from(new Set([...customizeManifestJson.mobile.js, ...realManifestJson.mobile.js]));
+    realManifestJson.mobile.css = Array.from(new Set([...customizeManifestJson.mobile.css, ...realManifestJson.mobile.css]));
 
-    fs.writeFileSync(
-      './dest/customize-manifest.json',
-      JSON.stringify(realManifestJson, null, 2),
-      'utf8',
-      (err, data) => {},
-    );
+    fs.writeFileSync('./dest/customize-manifest.json', JSON.stringify(realManifestJson, null, 2), 'utf8', (err, data) => {});
 
     console.log('Completed copying from template.');
   },
@@ -310,21 +295,24 @@ const functions = {
    */
   processTemplate: async (userTemplateArg, readBasicConfig, userClient) => {
     if (userTemplateArg === 'kuya') {
-      const codeInit = fs.readFileSync(path.join(
-        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}init-template.js`
-      ), 'utf8');
-      const codeFunctions = fs.readFileSync(path.join(
-        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}functions-template.js`
-      ), 'utf8');
-      const codeMain = fs.readFileSync(path.join(
-        path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}main-template.js`
-      ), 'utf8');
+      const codeInit = fs.readFileSync(
+        path.join(path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}init-template.js`),
+        'utf8',
+      );
+      const codeFunctions = fs.readFileSync(
+        path.join(path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}functions-template.js`),
+        'utf8',
+      );
+      const codeMain = fs.readFileSync(
+        path.join(path.dirname(currentScriptPath), '.', `./template/${userTemplateArg ? userTemplateArg + '/' : ''}main-template.js`),
+        'utf8',
+      );
 
       const substr = codeInit.substring(codeInit.indexOf('fieldCode'));
       const substrFieldCode = substr.substring(substr.indexOf('{'), substr.indexOf('}') + 1);
 
       const formFields = await userClient.app.getFormFields({
-        app: readBasicConfig.appId
+        app: readBasicConfig.appId,
       });
 
       const fields = formFields.properties;
@@ -332,26 +320,11 @@ const functions = {
 
       const resultInit = codeInit.replace(substrFieldCode, JSON.stringify(fieldCode, null, 8));
 
-      fs.writeFileSync(
-        './dest/desktop/js/init.js',
-        resultInit,
-        'utf8',
-        (err, data) => {},
-      );
+      fs.writeFileSync('./dest/desktop/js/init.js', resultInit, 'utf8', (err, data) => {});
 
-      fs.writeFileSync(
-        './dest/desktop/js/functions.js',
-        codeFunctions,
-        'utf8',
-        (err, data) => {},
-      );
+      fs.writeFileSync('./dest/desktop/js/functions.js', codeFunctions, 'utf8', (err, data) => {});
 
-      fs.writeFileSync(
-        './dest/desktop/js/main.js',
-        codeMain,
-        'utf8',
-        (err, data) => {},
-      );
+      fs.writeFileSync('./dest/desktop/js/main.js', codeMain, 'utf8', (err, data) => {});
 
       return;
     }
@@ -393,7 +366,7 @@ const functions = {
               [_.camelCase(label)]: {
                 fieldCode: val.code,
                 columns: {},
-              }
+              },
             };
           }
 
@@ -418,19 +391,14 @@ const functions = {
               fieldCode.table[_.camelCase(label)].columns[_.camelCase(colLabel)] = thisCol.code;
             }
           }
-
-
         } else {
-
           fieldCode[_.camelCase(label)] = val.code;
         }
       }
     }
 
     return fieldCode;
-  }
+  },
 };
 
-export {
-  functions
-};
+export {functions};
