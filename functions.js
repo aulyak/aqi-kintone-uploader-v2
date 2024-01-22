@@ -219,7 +219,7 @@ const functions = {
       args += 'init';
     }
 
-    if (type === 'import' || type === 'upload') {
+    if (type === 'import' || type === 'upload' || type === 'once') {
       const readConfig = JSON.parse(fs.readFileSync('./config/basic-config.json'));
       const {baseUrl, username, password} = readConfig;
 
