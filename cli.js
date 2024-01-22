@@ -335,33 +335,6 @@ dotenv.config({
       exit();
     }
 
-    const isNew = await functions.checkIsNewCustomization(readBasicConfig, userClient);
-
-    if (!isNew) {
-      const confirmationDialogue = [
-        {
-          type: 'list',
-          name: 'confirmed',
-          message: 'This app has already had customizations. Please make sure you have imported them before uploading.',
-          choices: [
-            {
-              name: 'Proceed.',
-              value: true,
-            },
-            {
-              name: 'Cancel.',
-              value: false,
-            },
-          ],
-        },
-      ];
-
-      const confirmationAnswer = await prompt(confirmationDialogue);
-      const {confirmed} = confirmationAnswer;
-
-      if (!confirmed) return;
-    }
-
     functions.callUploader('once');
     return;
   }
