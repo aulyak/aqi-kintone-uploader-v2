@@ -9,6 +9,7 @@ import {createSpinner} from 'nanospinner';
 import pkg from 'lodash';
 import {KintoneRestAPIClient} from '@kintone/rest-api-client';
 import {kintoneApps} from './init.js';
+import spawn from 'cross-spawn';
 
 const {_} = pkg;
 
@@ -211,12 +212,14 @@ const functions = {
    * @param {string} type - the type of argument passed to kintone-customize-uploader package
    */
   callUploader: (type) => {
-    const uploaderCliPath = "${path.join(path.dirname(currentScriptPath), '.', '.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js')}";
+    const uploaderCliPath = path.join(path.dirname(currentScriptPath), 'node_modules', '@kintone', 'customize-uploader', 'bin', 'cli.js');
 
-    let args = '';
+    console.log(uploaderCliPath); // For debugging
+
+    let args = [];
 
     if (type === 'init') {
-      args += 'init';
+      args.push('init');
     }
 
     if (type === 'import' || type === 'upload' || type === 'once') {
@@ -224,22 +227,25 @@ const functions = {
       const {baseUrl, username, password} = readConfig;
 
       if (type === 'import') {
-        args += `import dest\\customize-manifest.json --base-url ${baseUrl} --username ${username} --password ${password}`;
+        args.push('import', 'dest/customize-manifest.json', '--base-url', baseUrl, '--username', username, '--password', password);
       }
 
       if (type === 'upload') {
-        args += `--watch dest\\customize-manifest.json --base-url ${baseUrl} --username ${username} --password ${password}`;
+        args.push('--watch', 'dest/customize-manifest.json', '--base-url', baseUrl, '--username', username, '--password', password);
       }
 
       if (type === 'once') {
-        args += ` dest\\customize-manifest.json --base-url ${baseUrl} --username ${username} --password ${password}`;
+        args.push('dest/customize-manifest.json', '--base-url', baseUrl, '--username', username, '--password', password);
       }
     }
 
-    const cliPath = `${uploaderCliPath} ${args}`;
-
     try {
-      execSync(`node ${cliPath}`, {stdio: 'inherit'});
+      const result = spawn.sync('node', [uploaderCliPath, ...args], {stdio: 'inherit'});
+
+      if (result.error) {
+        console.error(`Error running kintone-customize-uploader: ${result.error.message}`);
+        process.exit(result.status);
+      }
     } catch (error) {
       console.error(`Error running kintone-customize-uploader: ${error.message}`);
     }
