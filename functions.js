@@ -211,7 +211,7 @@ const functions = {
    * @param {string} type - the type of argument passed to kintone-customize-uploader package
    */
   callUploader: (type) => {
-    const uploaderCliPath = path.join(path.dirname(currentScriptPath), '.', '.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js');
+    const uploaderCliPath = "${path.join(path.dirname(currentScriptPath), '.', '.\\node_modules\\@kintone\\customize-uploader\\bin\\cli.js')}";
 
     let args = '';
 
